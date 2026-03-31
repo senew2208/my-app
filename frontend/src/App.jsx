@@ -8,6 +8,12 @@ import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 function App() {
   const [count, setCount] = useState(0)
 
+  const [data, setData] = useState(null);
+  async function testApi() {
+    const res = await fetch("https://worker.senew2208.workers.dev");
+    const json = await res.json();
+    setData(json);
+  }
   return (
     <>
     
@@ -40,6 +46,11 @@ function App() {
         </Show>
       </header>
       <div className="ticks"></div>
+<div>
+      <button onClick={testApi}>Call API</button>
+
+      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
+    </div>
 
       <section id="next-steps">
         <div id="docs">

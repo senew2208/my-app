@@ -58,7 +58,7 @@ function App() {
         </Show>
         <Show when="signed-in">
           <UserButton />
-          <CheckoutButton priceId="prod_UFnmmZWMxXW2bY" />
+          <CheckoutButton priceId="price_1THIBCRBIrAzqMIj8PEyg1Qk" />
         </Show>
       </header>
       <div className="ticks"></div>

@@ -33,33 +33,46 @@ export default {
 
 		// Public route: Stripe webhook
 		if (request.method === "POST" && pathname === "/webhook") {
+			console.log("📍 Webhook received");
 			const signature = request.headers.get("Stripe-Signature");
 			if (!signature) {
+				console.error("❌ Missing Stripe-Signature header");
 				return new Response(JSON.stringify({ error: "Missing signature" }), { status: 400, headers: corsHeaders });
 			}
 
 			try {
 				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
 				const body = await request.text();
-				const event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET);
+				console.log("📍 Body received, length:", body.length);
+
+				const event = await stripe.webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET);
+				console.log("✅ Webhook signature verified");
+				console.log("📍 Event type:", event.type);
 
 				if (event.type === "checkout.session.completed") {
+					console.log("✅ Processing checkout.session.completed event");
 					const session = event.data.object as any;
+					console.log("📍 Session ID:", session.id);
+					console.log("📍 Client reference ID:", session.client_reference_id);
+					console.log("📍 Customer email:", session.customer_email);
 
 					// Get session details
 					const retrievedSession = await stripe.checkout.sessions.retrieve(session.id, {
 						expand: ["line_items"],
 					});
+					console.log("📍 Retrieved session payment status:", retrievedSession.payment_status);
 
 					const lineItem = (retrievedSession.line_items?.data || [])[0];
 					const productName = lineItem?.description || "Product";
 					const amount = (lineItem?.amount_total || 0) / 100; // Convert cents to dollars
+					console.log("📍 Product:", productName, "Amount:", amount);
 
 					// Store in D1
 					const transactionId = generateId();
 					const now = new Date().toISOString();
 
-					await env.DB.prepare(`
+					console.log("📍 Attempting to insert transaction:", transactionId);
+					const result = await env.DB.prepare(`
 						INSERT INTO transactions (id, userId, email, sessionId, productName, amount, status, createdAt, updatedAt)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 					`).bind(
@@ -74,14 +87,16 @@ export default {
 						now
 					).run();
 
-					console.log("Transaction stored:", transactionId);
-					return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+					console.log("✅ Transaction stored:", transactionId, "Result:", result);
+					return new Response(JSON.stringify({ success: true, transactionId }), { headers: corsHeaders });
 				}
 
+				console.log("⚠️ Event type not checkout.session.completed, ignoring");
 				return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
 			} catch (err) {
-				console.error("Webhook error:", err);
-				return new Response(JSON.stringify({ error: "Webhook failed" }), { status: 400, headers: corsHeaders });
+				console.error("❌ Webhook error:", err instanceof Error ? err.message : String(err));
+				console.error("❌ Full error:", err);
+				return new Response(JSON.stringify({ error: "Webhook failed", details: err instanceof Error ? err.message : String(err) }), { status: 400, headers: corsHeaders });
 			}
 		}
 
@@ -181,21 +196,24 @@ export default {
 
 		// POST checkout
 		if (request.method === "POST" && pathname === "/") {
-			const { priceId } = (await request.json()) as { priceId: string };
+			const { priceId, email } = (await request.json()) as { priceId: string; email?: string };
 
 			try {
 				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
 				const frontendUrl = env.FRONTEND_URL || "https://my-app-eha.pages.dev";
 
+				console.log("📍 Creating checkout session - priceId:", priceId, "email:", email);
+
 				const session = await stripe.checkout.sessions.create({
 					mode: "payment",
 					line_items: [{ price: priceId, quantity: 1 }],
-					customer_email: user.email_addresses?.[0]?.email_address || undefined,
+					customer_email: email || undefined,
 					client_reference_id: user.sub,
 					success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
 					cancel_url: `${frontendUrl}/cancel`,
 				});
 
+				console.log("✅ Checkout session created:", session.id);
 				return new Response(JSON.stringify({ url: session.url }), { headers: corsHeaders });
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : String(err);

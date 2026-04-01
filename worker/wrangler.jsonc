@@ -15,9 +15,8 @@
 		"nodejs_compat"
 	],
 	"d1_databases": [
-		 
 		{
-			"binding": "myapp_db",
+			"binding": "DB",
 			"database_name": "myapp-db",
 			"database_id": "275072db-3a82-4ab2-9ce3-77a8554de65a"
 		}

@@ -4,6 +4,7 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
 import { useAuth, Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
+ 
 
 function App() {
   const [count, setCount] = useState(0)

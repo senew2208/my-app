@@ -1,23 +1,15 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 import { useAuth, Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 import CheckoutButton from './components/CheckoutButton'
- 
 
 function App() {
-  const [count, setCount] = useState(0)
-
   const [data, setData] = useState(null);
-
   const { getToken } = useAuth();
 
   async function testApi() {
     try {
       const token = await getToken();
-      // const res = await fetch("https://worker.senew2208.workers.dev");
       const res = await fetch("https://worker.senew2208.workers.dev", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -29,129 +21,85 @@ function App() {
       console.error("Error calling worker: ", err);
     }
   }
+
   return (
-    <>
-
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-container">
+      <header className="app-header">
+        <div className="header-content">
+          <h1 className="logo">MyApp</h1>
+          <nav className="auth-nav">
+            <Show when="signed-out">
+              <SignInButton mode="modal" />
+              <SignUpButton mode="modal" />
+            </Show>
+            <Show when="signed-in">
+              <div className="user-info">
+                {data && (
+                  <div className="user-details">
+                    <span className="user-email">{data.email || data.userId}</span>
+                  </div>
+                )}
+                <UserButton />
+              </div>
+            </Show>
+          </nav>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-      <header>
-        <Show when="signed-out">
-          <SignInButton />
-          <SignUpButton />
-        </Show>
-        <Show when="signed-in">
-          <UserButton />
-          <CheckoutButton priceId="price_1THIBCRBIrAzqMIj8PEyg1Qk" />
-        </Show>
       </header>
-      <div className="ticks"></div>
-      <div>
-        <button onClick={testApi}>Call API</button>
 
-        {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-      </div>
+      <main className="app-main">
+        <Show when="signed-out">
+          <section className="hero">
+            <h2>Welcome to MyApp</h2>
+            <p>Get started with our service today</p>
+            <div className="cta-buttons">
+              <SignUpButton mode="modal">
+                <button className="btn btn-primary">Sign Up</button>
+              </SignUpButton>
+              <SignInButton mode="modal">
+                <button className="btn btn-secondary">Sign In</button>
+              </SignInButton>
+            </div>
+          </section>
+        </Show>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <Show when="signed-in">
+          <section className="dashboard">
+            <div className="product-card">
+              <div className="card-header">
+                <h2>Premium Product</h2>
+                <p className="card-description">Access our premium features</p>
+              </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+              <div className="card-features">
+                <ul>
+                  <li>All premium features</li>
+                  <li>Priority support</li>
+                  <li>Advanced analytics</li>
+                </ul>
+              </div>
+
+              <div className="card-footer">
+                <div className="price">
+                  <span className="amount">$100</span>
+                  <span className="period">one-time</span>
+                </div>
+                <CheckoutButton priceId="price_1THIBCRBIrAzqMIj8PEyg1Qk" />
+              </div>
+            </div>
+
+            <div className="debug-section">
+              <button onClick={testApi} className="debug-btn">Test Auth (Call API)</button>
+              {data && (
+                <div className="debug-output">
+                  <h3>API Response:</h3>
+                  <pre>{JSON.stringify(data, null, 2)}</pre>
+                </div>
+              )}
+            </div>
+          </section>
+        </Show>
+      </main>
+    </div>
   )
 }
 

@@ -63,10 +63,10 @@ export default {
 
 			try {
 				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
-				const frontendUrl = env.FRONTEND_URL || "https://your-site.pages.dev";
+				const frontendUrl = env.FRONTEND_URL || "https://my-app-eha.pages.dev";
 
 				const session = await stripe.checkout.sessions.create({
-					mode: "subscription", // or "payment" for one-time
+					mode: "payment",
 					line_items: [{ price: priceId, quantity: 1 }],
 					customer_email: user.email_addresses?.[0]?.email_address || undefined,
 					success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -75,8 +75,9 @@ export default {
 
 				return new Response(JSON.stringify({ url: session.url }), { headers: corsHeaders });
 			} catch (err) {
-				console.error(err);
-				return new Response(JSON.stringify({ error: "Failed to create checkout session" }), { status: 500, headers: corsHeaders });
+				const errorMsg = err instanceof Error ? err.message : String(err);
+				console.error("Stripe checkout error:", errorMsg, err);
+				return new Response(JSON.stringify({ error: `Stripe error: ${errorMsg}` }), { status: 500, headers: corsHeaders });
 			}
 		}
 

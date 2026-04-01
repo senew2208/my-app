@@ -122,8 +122,13 @@ export default {
 				return new Response(JSON.stringify({ error: "Unauthorized: Invalid token" }), { status: 401, headers: corsHeaders });
 			}
 
-			const userEmail = user.email_addresses?.[0]?.email_address || user.email;
-			if (!PROVISIONING_TEAM_EMAILS.includes(userEmail)) {
+			// Get email from query parameter (sent by frontend)
+			const userEmail = url.searchParams.get("email");
+			console.log("Provisioning route - Email from frontend:", userEmail);
+			console.log("Provisioning route - Allowed emails:", PROVISIONING_TEAM_EMAILS);
+
+			if (!userEmail || !PROVISIONING_TEAM_EMAILS.includes(userEmail)) {
+				console.log("Provisioning route - Access denied for email:", userEmail);
 				return new Response(JSON.stringify({ error: "Forbidden: Not in provisioning team" }), { status: 403, headers: corsHeaders });
 			}
 
@@ -150,6 +155,7 @@ export default {
 						UPDATE transactions SET status = ?, comments = ?, updatedAt = ? WHERE id = ?
 					`).bind(status || "pending", comments || "", now, id).run();
 
+					console.log("Transaction updated:", id, "by", userEmail);
 					return new Response(JSON.stringify({ success: result.success }), { headers: corsHeaders });
 				} catch (err) {
 					console.error(err);

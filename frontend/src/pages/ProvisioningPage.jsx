@@ -45,7 +45,7 @@ export default function ProvisioningPage() {
 		try {
 			setTransLoading(true);
 			const token = await getToken();
-			const res = await fetch("https://worker.senew2208.workers.dev/provisioning/transactions", {
+			const res = await fetch(`https://worker.senew2208.workers.dev/provisioning/transactions?email=${encodeURIComponent(userEmail)}`, {
 				headers: {
 					Authorization: `Bearer ${token}`,
 				},
@@ -68,7 +68,7 @@ export default function ProvisioningPage() {
 	const handleSave = async (txnId) => {
 		try {
 			const token = await getToken();
-			const res = await fetch("https://worker.senew2208.workers.dev/provisioning/transactions", {
+			const res = await fetch(`https://worker.senew2208.workers.dev/provisioning/transactions?email=${encodeURIComponent(userEmail)}`, {
 				method: "PUT",
 				headers: {
 					"Content-Type": "application/json",

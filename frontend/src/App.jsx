@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import './App.css'
-import { useAuth, Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
+import { useAuth, useUser, Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 import CheckoutButton from './components/CheckoutButton'
 
 function App() {
   const [data, setData] = useState(null);
   const { getToken } = useAuth();
+  const { user } = useUser();
 
   async function testApi() {
     try {
@@ -34,9 +35,9 @@ function App() {
             </Show>
             <Show when="signed-in">
               <div className="user-info">
-                {data && (
+                {user && (
                   <div className="user-details">
-                    <span className="user-email">{data.email || data.userId}</span>
+                    <span className="user-email">{user.primaryEmailAddress?.emailAddress || user.id}</span>
                   </div>
                 )}
                 <UserButton />

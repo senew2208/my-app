@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import SuccessPage from './pages/SuccessPage.jsx'
 import CancelPage from './pages/CancelPage.jsx'
+import ProvisioningPage from './pages/ProvisioningPage.jsx'
 import { ClerkProvider } from '@clerk/react'
 
 createRoot(document.getElementById('root')).render(
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/" element={<App />} />
           <Route path="/success" element={<SuccessPage />} />
           <Route path="/cancel" element={<CancelPage />} />
+          <Route path="/provisioning" element={<ProvisioningPage />} />
         </Routes>
       </BrowserRouter>
     </ClerkProvider>

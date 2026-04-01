@@ -44,7 +44,7 @@ export default {
 
 		// All other routes require Clerk auth
 		const authHeader = request.headers.get("Authorization");
-		if (!authHeader) return new Response("Unauthorized: Missing token", { status: 401, headers: corsHeaders });
+		if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized: Missing token" }), { status: 401, headers: corsHeaders });
 		const token = authHeader.replace("Bearer ", "");
 
 		let user: ClerkPayload;
@@ -54,7 +54,7 @@ export default {
 			})) as ClerkPayload;
 		} catch (err) {
 			console.error(err);
-			return new Response("Unauthorized: Invalid token", { status: 401, headers: corsHeaders });
+			return new Response(JSON.stringify({ error: "Unauthorized: Invalid token" }), { status: 401, headers: corsHeaders });
 		}
 
 		// Handle POST request for Stripe checkout
@@ -76,7 +76,7 @@ export default {
 				return new Response(JSON.stringify({ url: session.url }), { headers: corsHeaders });
 			} catch (err) {
 				console.error(err);
-				return new Response("Stripe error", { status: 500, headers: corsHeaders });
+				return new Response(JSON.stringify({ error: "Failed to create checkout session" }), { status: 500, headers: corsHeaders });
 			}
 		}
 

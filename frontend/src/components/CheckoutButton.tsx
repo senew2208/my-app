@@ -23,11 +23,13 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ priceId }) => {
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Checkout failed");
       if (!data.url) throw new Error("No checkout URL returned");
 
       window.location.href = data.url;
     } catch (err) {
       console.error("Checkout error:", err);
+      alert(`Checkout error: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 

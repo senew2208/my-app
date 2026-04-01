@@ -20,12 +20,33 @@ export default {
 			return new Response(null, { headers: corsHeaders });
 		}
 
-		// Get Authorization token
+		const url = new URL(request.url);
+		const pathname = url.pathname;
+
+		// Public route: verify checkout session (called from /success page)
+		if (request.method === "GET" && pathname === "/checkout-session") {
+			const sessionId = url.searchParams.get("session_id");
+			if (!sessionId) {
+				return new Response(JSON.stringify({ error: "Missing session_id" }), { status: 400, headers: corsHeaders });
+			}
+			try {
+				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
+				const session = await stripe.checkout.sessions.retrieve(sessionId);
+				return new Response(
+					JSON.stringify({ status: session.status, payment_status: session.payment_status }),
+					{ headers: corsHeaders }
+				);
+			} catch (err) {
+				console.error(err);
+				return new Response(JSON.stringify({ error: "Failed to retrieve session" }), { status: 500, headers: corsHeaders });
+			}
+		}
+
+		// All other routes require Clerk auth
 		const authHeader = request.headers.get("Authorization");
 		if (!authHeader) return new Response("Unauthorized: Missing token", { status: 401, headers: corsHeaders });
 		const token = authHeader.replace("Bearer ", "");
 
-		// Verify Clerk token
 		let user: ClerkPayload;
 		try {
 			user = (await verifyToken(token, {
@@ -42,13 +63,14 @@ export default {
 
 			try {
 				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
+				const frontendUrl = env.FRONTEND_URL || "https://your-site.pages.dev";
 
 				const session = await stripe.checkout.sessions.create({
 					mode: "subscription", // or "payment" for one-time
 					line_items: [{ price: priceId, quantity: 1 }],
 					customer_email: user.email_addresses?.[0]?.email_address || undefined,
-					success_url: "https://your-site.pages.dev/success",
-					cancel_url: "https://your-site.pages.dev/cancel",
+					success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+					cancel_url: `${frontendUrl}/cancel`,
 				});
 
 				return new Response(JSON.stringify({ sessionId: session.id }), { headers: corsHeaders });
@@ -58,7 +80,7 @@ export default {
 			}
 		}
 
-		// GET request (or fallback) returns user info
+		// GET / returns user info
 		const email = user.email_addresses?.[0]?.email_address || null;
 		return new Response(
 			JSON.stringify({

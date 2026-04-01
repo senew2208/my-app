@@ -3,20 +3,33 @@ import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
-import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
+import { useAuth, Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 
 function App() {
   const [count, setCount] = useState(0)
 
   const [data, setData] = useState(null);
+
+  const { getToken } = useAuth();
+
   async function testApi() {
-    const res = await fetch("https://worker.senew2208.workers.dev");
-    const json = await res.json();
-    setData(json);
+    try {
+      const token = await getToken();
+      // const res = await fetch("https://worker.senew2208.workers.dev");
+      const res = await fetch("https://worker.senew2208.workers.dev", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      setData(json);
+    } catch (err) {
+      console.error("Error calling worker: ", err);
+    }
   }
   return (
     <>
-    
+
       <section id="center">
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
@@ -36,7 +49,7 @@ function App() {
           Count is {count}
         </button>
       </section>
- <header>
+      <header>
         <Show when="signed-out">
           <SignInButton />
           <SignUpButton />
@@ -46,11 +59,11 @@ function App() {
         </Show>
       </header>
       <div className="ticks"></div>
-<div>
-      <button onClick={testApi}>Call API</button>
+      <div>
+        <button onClick={testApi}>Call API</button>
 
-      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-    </div>
+        {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
+      </div>
 
       <section id="next-steps">
         <div id="docs">

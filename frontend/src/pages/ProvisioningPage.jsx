@@ -22,7 +22,12 @@ export default function ProvisioningPage() {
 	const isProvisioning = userEmail && PROVISIONING_TEAM_EMAILS.includes(userEmail);
 
 	useEffect(() => {
+		console.log("User email:", userEmail);
+		console.log("Provisioning team emails:", PROVISIONING_TEAM_EMAILS);
+		console.log("Is provisioning:", isProvisioning);
+
 		if (!isProvisioning) {
+			console.log("Not authorized, redirecting to /");
 			navigate("/");
 			return;
 		}

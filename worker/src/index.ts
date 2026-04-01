@@ -3,6 +3,7 @@ import { verifyToken } from "@clerk/backend";
 
 const PROVISIONING_TEAM_EMAILS = [
 	"senew2208@gmail.com",
+	"tnudraft@gmail.com",
 	"avitiw@gmail.com",
 ];
 
@@ -53,6 +54,7 @@ export default {
 					console.log("✅ Processing checkout.session.completed event");
 					const session = event.data.object as any;
 					console.log("📍 Session ID:", session.id);
+					console.log("📍 Payment Intent ID:", session.payment_intent);
 					console.log("📍 Client reference ID:", session.client_reference_id);
 					console.log("📍 Customer email:", session.customer_email);
 
@@ -64,31 +66,39 @@ export default {
 
 					const lineItem = (retrievedSession.line_items?.data || [])[0];
 					const productName = lineItem?.description || "Product";
-					const amount = (lineItem?.amount_total || 0) / 100; // Convert cents to dollars
-					console.log("📍 Product:", productName, "Amount:", amount);
+					const amountCents = lineItem?.amount_total || 0; // Amount in cents (not converted)
+					const currency = retrievedSession.currency || "usd";
+					console.log("📍 Product:", productName, "Amount:", amountCents, "cents, Currency:", currency);
 
-					// Store in D1
-					const transactionId = generateId();
+					// Store in D1 using Stripe Payment Intent ID as primary key
+					const paymentIntentId = session.payment_intent;
+					if (!paymentIntentId) {
+						console.error("❌ No payment intent ID found");
+						return new Response(JSON.stringify({ error: "No payment intent ID" }), { status: 400, headers: corsHeaders });
+					}
+
 					const now = new Date().toISOString();
 
-					console.log("📍 Attempting to insert transaction:", transactionId);
+					console.log("📍 Attempting to insert transaction:", paymentIntentId);
 					const result = await env.DB.prepare(`
-						INSERT INTO transactions (id, userId, email, sessionId, productName, amount, status, createdAt, updatedAt)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+						INSERT INTO transactions (id, userId, email, sessionId, productName, amount, currency, status, provisioned, createdAt, updatedAt)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 					`).bind(
-						transactionId,
+						paymentIntentId,
 						session.client_reference_id || "unknown",
 						session.customer_email || "unknown",
 						session.id,
 						productName,
-						amount,
-						"completed",
+						amountCents,
+						currency,
+						"succeeded",
+						0,
 						now,
 						now
 					).run();
 
-					console.log("✅ Transaction stored:", transactionId, "Result:", result);
-					return new Response(JSON.stringify({ success: true, transactionId }), { headers: corsHeaders });
+					console.log("✅ Transaction stored:", paymentIntentId, "Result:", result);
+					return new Response(JSON.stringify({ success: true, transactionId: paymentIntentId }), { headers: corsHeaders });
 				}
 
 				console.log("⚠️ Event type not checkout.session.completed, ignoring");

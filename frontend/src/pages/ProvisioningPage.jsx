@@ -116,11 +116,13 @@ export default function ProvisioningPage() {
 					<table className="transactions-table">
 						<thead>
 							<tr>
-								<th>ID</th>
+								<th>Payment ID</th>
+								<th>Session ID</th>
 								<th>Email</th>
 								<th>Product</th>
 								<th>Amount</th>
 								<th>Status</th>
+								<th>Provisioned</th>
 								<th>Comments</th>
 								<th>Created</th>
 								<th>Actions</th>
@@ -129,21 +131,26 @@ export default function ProvisioningPage() {
 						<tbody>
 							{transactions.map((txn) => (
 								<tr key={txn.id} className={`status-${txn.status}`}>
-									<td className="txn-id">{txn.id}</td>
+									<td className="txn-id" title={txn.id}>{txn.id.substring(0, 20)}...</td>
+									<td className="session-id" title={txn.sessionId}>{txn.sessionId.substring(0, 20)}...</td>
 									<td>{txn.email}</td>
 									<td>{txn.productName}</td>
-									<td className="amount">${txn.amount.toFixed(2)}</td>
+									<td className="amount">{(txn.amount / 100).toFixed(2)} {txn.currency?.toUpperCase() || 'USD'}</td>
 									<td>
 										{editingId === txn.id ? (
 											<select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-												<option value="completed">Completed</option>
-												<option value="processing">Processing</option>
-												<option value="provisioned">Provisioned</option>
+												<option value="pending">Pending</option>
+												<option value="succeeded">Succeeded</option>
 												<option value="failed">Failed</option>
 											</select>
 										) : (
 											<span className={`status-badge status-${txn.status}`}>{txn.status}</span>
 										)}
+									</td>
+									<td>
+										<span className={`provisioned-badge ${txn.provisioned ? 'provisioned' : 'pending'}`}>
+											{txn.provisioned ? '✓ Yes' : '✗ No'}
+										</span>
 									</td>
 									<td>
 										{editingId === txn.id ? (

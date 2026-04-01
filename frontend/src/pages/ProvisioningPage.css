@@ -62,10 +62,12 @@
   opacity: 0.7;
 }
 
-.txn-id {
+.txn-id,
+.session-id {
   font-family: monospace;
   font-size: 0.85rem;
   color: var(--text-secondary);
+  cursor: help;
 }
 
 .amount {
@@ -104,6 +106,34 @@
 .status-badge.status-failed {
   background: #f8d7da;
   color: #721c24;
+}
+
+.status-badge.status-pending {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.status-badge.status-succeeded {
+  background: #d4edda;
+  color: #155724;
+}
+
+.provisioned-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.provisioned-badge.provisioned {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.provisioned-badge.pending {
+  background: #fff3cd;
+  color: #856404;
 }
 
 .transactions-table select,

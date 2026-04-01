@@ -12,12 +12,23 @@ interface ClerkPayload {
 	email_addresses?: { email_address: string; id: string; verified: boolean }[];
 }
 
-function generateId() {
-	return `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+type LogLevel = "debug" | "info" | "error";
+
+function createLogger(env: any) {
+	const level: LogLevel = env.LOG_LEVEL || "info";
+	const levels: Record<LogLevel, number> = { debug: 0, info: 1, error: 2 };
+
+	return {
+		debug: (...args: any[]) => levels[level] <= 0 && console.log("[debug]", ...args),
+		info:  (...args: any[]) => levels[level] <= 1 && console.log("[info]",  ...args),
+		error: (...args: any[]) => console.error("[error]", ...args),
+	};
 }
 
 export default {
 	async fetch(request: Request, env: any): Promise<Response> {
+		const log = createLogger(env);
+
 		const corsHeaders = {
 			"Content-Type": "application/json",
 			"Access-Control-Allow-Origin": "*",
@@ -34,53 +45,41 @@ export default {
 
 		// Public route: Stripe webhook
 		if (request.method === "POST" && pathname === "/webhook") {
-			console.log("📍 Webhook received");
 			const signature = request.headers.get("Stripe-Signature");
 			if (!signature) {
-				console.error("❌ Missing Stripe-Signature header");
+				log.error("Missing Stripe-Signature header");
 				return new Response(JSON.stringify({ error: "Missing signature" }), { status: 400, headers: corsHeaders });
 			}
 
 			try {
 				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
 				const body = await request.text();
-				console.log("📍 Body received, length:", body.length);
-
 				const event = await stripe.webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET);
-				console.log("✅ Webhook signature verified");
-				console.log("📍 Event type:", event.type);
+
+				log.debug("Webhook event received:", event.type);
 
 				if (event.type === "checkout.session.completed") {
-					console.log("✅ Processing checkout.session.completed event");
 					const session = event.data.object as any;
-					console.log("📍 Session ID:", session.id);
-					console.log("📍 Payment Intent ID:", session.payment_intent);
-					console.log("📍 Client reference ID:", session.client_reference_id);
-					console.log("📍 Customer email:", session.customer_email);
+					log.debug("Session ID:", session.id, "Payment Intent:", session.payment_intent, "Email:", session.customer_email);
 
-					// Get session details
 					const retrievedSession = await stripe.checkout.sessions.retrieve(session.id, {
 						expand: ["line_items"],
 					});
-					console.log("📍 Retrieved session payment status:", retrievedSession.payment_status);
 
 					const lineItem = (retrievedSession.line_items?.data || [])[0];
 					const productName = lineItem?.description || "Product";
-					const amountCents = lineItem?.amount_total || 0; // Amount in cents (not converted)
+					const amountCents = lineItem?.amount_total || 0;
 					const currency = retrievedSession.currency || "usd";
-					console.log("📍 Product:", productName, "Amount:", amountCents, "cents, Currency:", currency);
 
-					// Store in D1 using Stripe Payment Intent ID as primary key
 					const paymentIntentId = session.payment_intent;
 					if (!paymentIntentId) {
-						console.error("❌ No payment intent ID found");
+						log.error("No payment intent ID in session:", session.id);
 						return new Response(JSON.stringify({ error: "No payment intent ID" }), { status: 400, headers: corsHeaders });
 					}
 
 					const now = new Date().toISOString();
 
-					console.log("📍 Attempting to insert transaction:", paymentIntentId);
-					const result = await env.DB.prepare(`
+					await env.DB.prepare(`
 						INSERT INTO transactions (id, userId, email, sessionId, productName, amount, currency, status, provisioned, createdAt, updatedAt)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 					`).bind(
@@ -97,15 +96,14 @@ export default {
 						now
 					).run();
 
-					console.log("✅ Transaction stored:", paymentIntentId, "Result:", result);
+					log.info("Transaction stored:", paymentIntentId, "email:", session.customer_email);
 					return new Response(JSON.stringify({ success: true, transactionId: paymentIntentId }), { headers: corsHeaders });
 				}
 
-				console.log("⚠️ Event type not checkout.session.completed, ignoring");
+				log.debug("Unhandled event type:", event.type);
 				return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
 			} catch (err) {
-				console.error("❌ Webhook error:", err instanceof Error ? err.message : String(err));
-				console.error("❌ Full error:", err);
+				log.error("Webhook failed:", err instanceof Error ? err.message : String(err));
 				return new Response(JSON.stringify({ error: "Webhook failed", details: err instanceof Error ? err.message : String(err) }), { status: 400, headers: corsHeaders });
 			}
 		}
@@ -124,12 +122,12 @@ export default {
 					{ headers: corsHeaders }
 				);
 			} catch (err) {
-				console.error(err);
+				log.error("Failed to retrieve checkout session:", err);
 				return new Response(JSON.stringify({ error: "Failed to retrieve session" }), { status: 500, headers: corsHeaders });
 			}
 		}
 
-		// Provisioning routes: check auth
+		// Provisioning routes
 		if (pathname.startsWith("/provisioning/")) {
 			const authHeader = request.headers.get("Authorization");
 			if (!authHeader) {
@@ -139,25 +137,18 @@ export default {
 
 			let user: any;
 			try {
-				user = await verifyToken(token, {
-					secretKey: env.CLERK_SECRET_KEY,
-				});
+				user = await verifyToken(token, { secretKey: env.CLERK_SECRET_KEY });
 			} catch (err) {
-				console.error(err);
+				log.error("Invalid Clerk token:", err);
 				return new Response(JSON.stringify({ error: "Unauthorized: Invalid token" }), { status: 401, headers: corsHeaders });
 			}
 
-			// Get email from query parameter (sent by frontend)
 			const userEmail = url.searchParams.get("email");
-			console.log("Provisioning route - Email from frontend:", userEmail);
-			console.log("Provisioning route - Allowed emails:", PROVISIONING_TEAM_EMAILS);
-
 			if (!userEmail || !PROVISIONING_TEAM_EMAILS.includes(userEmail)) {
-				console.log("Provisioning route - Access denied for email:", userEmail);
+				log.info("Provisioning access denied for:", userEmail);
 				return new Response(JSON.stringify({ error: "Forbidden: Not in provisioning team" }), { status: 403, headers: corsHeaders });
 			}
 
-			// GET all transactions
 			if (request.method === "GET" && pathname === "/provisioning/transactions") {
 				try {
 					const result = await env.DB.prepare(`
@@ -165,42 +156,39 @@ export default {
 					`).all();
 					return new Response(JSON.stringify(result.results), { headers: corsHeaders });
 				} catch (err) {
-					console.error(err);
+					log.error("Failed to fetch transactions:", err);
 					return new Response(JSON.stringify({ error: "Failed to fetch transactions" }), { status: 500, headers: corsHeaders });
 				}
 			}
 
-			// PUT update transaction status/comments
 			if (request.method === "PUT" && pathname === "/provisioning/transactions") {
 				try {
-					const { id, status, comments } = (await request.json()) as { id: string; status?: string; comments?: string };
+					const { id, status, comments, provisioned } = (await request.json()) as { id: string; status?: string; comments?: string; provisioned?: boolean };
 					const now = new Date().toISOString();
 
 					const result = await env.DB.prepare(`
-						UPDATE transactions SET status = ?, comments = ?, updatedAt = ? WHERE id = ?
-					`).bind(status || "pending", comments || "", now, id).run();
+						UPDATE transactions SET status = ?, comments = ?, provisioned = ?, updatedAt = ? WHERE id = ?
+					`).bind(status || "pending", comments || "", provisioned ? 1 : 0, now, id).run();
 
-					console.log("Transaction updated:", id, "by", userEmail);
+					log.info("Transaction updated:", id, "by", userEmail);
 					return new Response(JSON.stringify({ success: result.success }), { headers: corsHeaders });
 				} catch (err) {
-					console.error(err);
+					log.error("Failed to update transaction:", err);
 					return new Response(JSON.stringify({ error: "Failed to update transaction" }), { status: 500, headers: corsHeaders });
 				}
 			}
 		}
 
-		// Authenticated user routes: regular checkout
+		// Authenticated user routes
 		const authHeader = request.headers.get("Authorization");
 		if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized: Missing token" }), { status: 401, headers: corsHeaders });
 		const token = authHeader.replace("Bearer ", "");
 
 		let user: any;
 		try {
-			user = await verifyToken(token, {
-				secretKey: env.CLERK_SECRET_KEY,
-			});
+			user = await verifyToken(token, { secretKey: env.CLERK_SECRET_KEY });
 		} catch (err) {
-			console.error(err);
+			log.error("Invalid Clerk token:", err);
 			return new Response(JSON.stringify({ error: "Unauthorized: Invalid token" }), { status: 401, headers: corsHeaders });
 		}
 
@@ -212,7 +200,7 @@ export default {
 				const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2026-03-25.dahlia" });
 				const frontendUrl = env.FRONTEND_URL || "https://my-app-eha.pages.dev";
 
-				console.log("📍 Creating checkout session - priceId:", priceId, "email:", email);
+				log.debug("Creating checkout session - priceId:", priceId, "email:", email);
 
 				const session = await stripe.checkout.sessions.create({
 					mode: "payment",
@@ -223,11 +211,11 @@ export default {
 					cancel_url: `${frontendUrl}/cancel`,
 				});
 
-				console.log("✅ Checkout session created:", session.id);
+				log.info("Checkout session created:", session.id);
 				return new Response(JSON.stringify({ url: session.url }), { headers: corsHeaders });
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : String(err);
-				console.error("Stripe checkout error:", errorMsg, err);
+				log.error("Stripe checkout error:", errorMsg);
 				return new Response(JSON.stringify({ error: `Stripe error: ${errorMsg}` }), { status: 500, headers: corsHeaders });
 			}
 		}
@@ -241,23 +229,13 @@ export default {
 			`).bind(user.sub).all();
 
 			return new Response(
-				JSON.stringify({
-					message: "Authenticated 🚀",
-					userId: user.sub,
-					email,
-					transactions: userTransactions.results,
-				}),
+				JSON.stringify({ message: "Authenticated 🚀", userId: user.sub, email, transactions: userTransactions.results }),
 				{ headers: corsHeaders }
 			);
 		} catch (err) {
-			console.error(err);
+			log.error("Failed to fetch user transactions:", err);
 			return new Response(
-				JSON.stringify({
-					message: "Authenticated 🚀",
-					userId: user.sub,
-					email,
-					transactions: [],
-				}),
+				JSON.stringify({ message: "Authenticated 🚀", userId: user.sub, email, transactions: [] }),
 				{ headers: corsHeaders }
 			);
 		}

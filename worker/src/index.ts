@@ -73,7 +73,7 @@ export default {
 					cancel_url: `${frontendUrl}/cancel`,
 				});
 
-				return new Response(JSON.stringify({ sessionId: session.id }), { headers: corsHeaders });
+				return new Response(JSON.stringify({ url: session.url }), { headers: corsHeaders });
 			} catch (err) {
 				console.error(err);
 				return new Response("Stripe error", { status: 500, headers: corsHeaders });

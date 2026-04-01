@@ -1,9 +1,8 @@
 import React from "react";
 import { useAuth } from "@clerk/react";
-import stripePromise  from "../lib/stripe";
 
 interface CheckoutButtonProps {
-  priceId: string; // Stripe price ID
+  priceId: string;
 }
 
 const CheckoutButton: React.FC<CheckoutButtonProps> = ({ priceId }) => {
@@ -11,9 +10,9 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ priceId }) => {
 
   const handleCheckout = async () => {
     try {
-      const token = await getToken(); // Clerk JWT
+      const token = await getToken();
+      if (!token) throw new Error("Not authenticated");
 
-      // Call Worker POST endpoint
       const res = await fetch("https://worker.senew2208.workers.dev", {
         method: "POST",
         headers: {
@@ -24,15 +23,9 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ priceId }) => {
       });
 
       const data = await res.json();
+      if (!data.url) throw new Error("No checkout URL returned");
 
-      const stripe = await stripePromise;
-      if (!stripe) throw new Error("Stripe.js failed to load");
-
-      const { error } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId,
-      });
-
-      if (error) console.error(error);
+      window.location.href = data.url;
     } catch (err) {
       console.error("Checkout error:", err);
     }

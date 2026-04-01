@@ -4,6 +4,7 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import './App.css'
 import { useAuth, Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
+import CheckoutButton from './components/CheckoutButton'
  
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
         </Show>
         <Show when="signed-in">
           <UserButton />
+          <CheckoutButton priceId="prod_UFnmmZWMxXW2bY" />
         </Show>
       </header>
       <div className="ticks"></div>

@@ -4,16 +4,16 @@ import { useNavigate } from "react-router-dom";
 import "./ProvisioningPage.css";
 
 const PROVISIONING_TEAM_EMAILS = [
-	"provisioning@example.com",
-	"admin@example.com",
+	"senew2208@gmail.com",
+	"avitiw@gmail.com",
 ];
 
 export default function ProvisioningPage() {
-	const { user } = useUser();
+	const { user, isLoaded } = useUser();
 	const { getToken } = useAuth();
 	const navigate = useNavigate();
 	const [transactions, setTransactions] = useState([]);
-	const [loading, setLoading] = useState(true);
+	const [transLoading, setTransLoading] = useState(true);
 	const [editingId, setEditingId] = useState(null);
 	const [editStatus, setEditStatus] = useState("");
 	const [editComments, setEditComments] = useState("");
@@ -22,6 +22,12 @@ export default function ProvisioningPage() {
 	const isProvisioning = userEmail && PROVISIONING_TEAM_EMAILS.includes(userEmail);
 
 	useEffect(() => {
+		if (!isLoaded) {
+			console.log("Waiting for Clerk to load user...");
+			return;
+		}
+
+		console.log("User loaded:", user);
 		console.log("User email:", userEmail);
 		console.log("Provisioning team emails:", PROVISIONING_TEAM_EMAILS);
 		console.log("Is provisioning:", isProvisioning);
@@ -33,11 +39,11 @@ export default function ProvisioningPage() {
 		}
 
 		fetchTransactions();
-	}, [isProvisioning, navigate]);
+	}, [isLoaded, userEmail, navigate]);
 
 	const fetchTransactions = async () => {
 		try {
-			setLoading(true);
+			setTransLoading(true);
 			const token = await getToken();
 			const res = await fetch("https://worker.senew2208.workers.dev/provisioning/transactions", {
 				headers: {
@@ -49,7 +55,7 @@ export default function ProvisioningPage() {
 		} catch (err) {
 			console.error("Error fetching transactions:", err);
 		} finally {
-			setLoading(false);
+			setTransLoading(false);
 		}
 	};
 
@@ -84,11 +90,15 @@ export default function ProvisioningPage() {
 		}
 	};
 
+	if (!isLoaded) {
+		return <div className="provisioning-container"><p>Loading...</p></div>;
+	}
+
 	if (!isProvisioning) {
 		return null;
 	}
 
-	if (loading) {
+	if (transLoading) {
 		return <div className="provisioning-container"><p>Loading transactions...</p></div>;
 	}
 
